@@ -1,0 +1,149 @@
+super + Return
+	terminator
+
+super + d
+	dmenu_run
+
+# reload sxhkd configuration file
+super + shift + s
+	pkill -USR1 -x sxhkd ;\
+	notify-send "sxhkd: sxhkd has been restarted."
+
+
+## nodes
+
+# focus the node in the given direction
+super + {h,j,k,l}
+	bspc node -f {west,south,north,east}
+
+super + shift + {j,k}
+	bspc node -s {south,north}
+super + shift + h
+	bspc node -s west || bspc node -s prev
+super + shift + l
+	bspc node -s east || bspc node -s next
+
+# focus the next/previous node in the current desktop
+super + {_,shift + }c
+	bspc node -f '{next,prev}.local.!hidden.window'
+
+# focus the last desktop on this monitor
+super + {grave,Tab}
+	bspc desktop -f last.local
+
+# control node layer
+super + {control + shift + o, shift + o, o}
+	bspc node -l {below,normal,above}
+
+# send focused node to another desktop
+super + shift + {1-9,0}
+	bspc node focused -d focused:'^{1-9,10}'
+
+# move a floating node
+super + {Left,Down,Up,Right}
+	bspc node -v {-25 0,0 25,0 -25,25 0}
+
+## desktops
+
+# focus desktop by index
+super + {1-9,0}
+	bspc desktop -f focused:'^{1-9,10}'
+
+# focus previous/next local occupied desktop
+super + bracket{left,right}
+	bspc desktop -f {prev,next}.local.occupied
+
+# focus previous/next local desktop
+super + shift + bracket{left,right}
+	bspc desktop -f {prev,next}.local
+
+# swap focused desktop across monitors
+super + shift + {u,i}
+	bspc desktop focused -s {west,east}:focused --follow
+
+# swap focused desktop with another desktop
+super + shift + ctrl + {u,i}
+	bspc desktop focused -s '{prev,next}' --follow
+
+## monitors
+
+# focus previous/next monitor
+super + {u,i}
+	bspc monitor -f {prev,next}
+
+# swap monitors
+# super + shift + ctrl + 
+# 	bspc monitor focused -s {west,east}
+
+## window states/flags
+
+# toggle node states: tiled|pseudo_tiled|floating|fullscreen
+super + {t,s,shift+f,f}
+	bspc node -t ~{tiled,pseudo_tiled,floating,fullscreen}
+
+# set node flags: hidden|sticky|private|locked|marked
+super + shift + {m,a,x,y,z}
+	action = "{marked,hidden,locked,sticky,private}"; \
+	bspc node -g "$action"; \
+	notify-send "Toggled a node flag: $action"
+
+# restore last hidden window
+super + shift + ctrl + r
+	bspc node "$(bspc query -N -n .hidden | tail -n1)" -g hidden=off
+
+## pre-selection
+
+# preselect split direction and set default split ratio
+super + ctrl + {h,j,k,l}
+	bspc node -p {west,south,north,east}; \
+	echo "0.5" > /tmp/BSPWM_RATIO; \
+	bspc node -o 0.5
+
+# preselect split ratio
+super + ctrl + shift + {h,j,k,l}
+	current="$(echo $(cat /tmp/BSPWM_RATIO) {-,+,-,+} 0.1 | bc -l)"; \
+	[ $(echo "$current <= 0" | bc -l) -eq 1 ] && current=0.1; \
+	[ $(echo "$current >= 1" | bc -l) -eq 1 ] && current=0.9; \
+	bspc node -o "$current"; \
+	echo "$current" > /tmp/BSPWM_RATIO
+
+# cancel preselection for the focused node
+super + ctrl + space
+	bspc node -p cancel
+
+# cancel preselection for the focused desktop
+super + ctrl + shift + space
+	bspc query -N -d | xargs -I id -n 1 bspc node id -p cancel
+
+## resize
+
+# expand a window by moving one of its side outward
+super + alt + {h,j,k,l}
+	bspc node -z {left -20 0,bottom 0 20,top 0 -20,right 20 0}
+
+# contract a window by moving one of its side inward
+super + alt + shift + {h,j,k,l}
+	bspc node -z {right -20 0,top 0 20,bottom 0 -20,left 20 0}
+
+## other
+
+# take screenshot
+super + Print
+	import png:- | xclip -selection clipboard -t image/png
+
+super + shift + Print
+	filename="$(echo '' | dmenu -p Enter\ filename\:\  | sed 's/.png//g')"; \
+	mkdir -p ~/Pictures/screenshots; \
+	import ~/Pictures/screenshots/"$filename".png
+
+# generate qr code from clipboard text
+super + v
+	xclip -selection clipboard -o | qrencode --size 8 -o /tmp/qr.png && sxiv /tmp/qr.png
+
+# invert focused node's colors using compositor
+super + ctrl + i
+	window="$(bspc query -n focused -T | cut -d ',' -f 1 | sed 's/\{"id"://g')"; \
+	status="$(xprop -id "$window" 8c TAG_INVERT | cut -d " " -f 3)"; \
+	[ "$status" != 0 ] && status=0 || status=1; \
+	xprop -id "$window" -format TAG_INVERT 8c -set TAG_INVERT "$status"
+
